@@ -4,7 +4,9 @@ from traceback import print_exc as _print_exc
 from time import process_time as _process_time
 from os import getcwd as _getcwd
 from threading import Thread as _Thread
-
+"""
+輸出log list
+"""
 def _IOwirte(li):
 
     with open('EASY_Backfilling exce Log.txt', 'w') as wp:
@@ -19,6 +21,9 @@ def _IOwirte(li):
                         "-----------------------------------------------------------------------------------------------------\n"\
                         %(job['Job_num'], job['Sub_t'], job['Wait_t'], job['start_t'], job['Run_t'], job['Finish_t'], job['Req_T'], job['Pred_T'], job['Req_p'], job['idle_pro']))
 
+"""
+Print Performance Evaluation
+"""
 def Print_Screen(li, Total_wait_t, Total_wait_rate, start, back_job_count):
 
     for job in li:
@@ -35,22 +40,17 @@ def Sort(sub_li, key):
     return(sorted(sub_li, key = lambda x: x[key]))
 
 """
-call這個function 在以下幾種狀態 
-1.模擬一開始process or job 從Job_queue(New state) -> ready status(Waiting_queue)
-2.每當有job 從running status -> terminated status 檢查這個時間內是否有job 應該從Job_queue(New state) -> ready status(Waiting_queue) -> schedular dispatch
-以上兩個動作最後皆需排程
+模擬process從Job_queue(New state) -> Waiting_queue(Ready state)
 """
 def ready_status(Job_queue, Waiting_queue, Running_queue, log, current_time, idle_pro):
 
+    # 發生在沒有Job會submit了，但Waiting_queue和Running_queue可能還有Job處理中
     if len(Job_queue) == 0:
         Waiting_queue, Running_queue, log, idle_pro = FCFS_scheduling(Waiting_queue, Running_queue, log, current_time, idle_pro)
-    # Waiting_queue和Running_queue是0，i.e., 一開始還沒有job submit或者運行過程中剛好job完成但還沒new job submit的時間點，模擬直接抓Job_queue第一個job丟進Waiting_queue並將時間設定成該job的Submit Time
-    # 第一種狀態可能發生的情形
+    # Waiting_queue和Running_queue是0，i.e., 一開始還沒有Job submit或者運行過程中剛好Job完成但還沒new Job submit的時間點，模擬直接抓Job_queue第一個job丟進Waiting_queue並將時間設定成該Job的Submit Time
     elif len(Waiting_queue) == 0 and len(Running_queue) == 0: 
         current_time = Job_queue[0]['Sub_t']
-    # 檢查是否有這個時間段內的job應該進Waiting_queue
-    # 第一種狀態檢查是否有同時間submit的job
-    # 第二種可能發生的情形
+    # 檢查是否有這個時間點內的Job應該進Waiting_queue且已經沒有Job從Running_queue(Run state) -> Terminated state
     tmp = list.copy(Job_queue)
     c_t = current_time
     for job in tmp:
@@ -69,11 +69,11 @@ def ready_status(Job_queue, Waiting_queue, Running_queue, log, current_time, idl
     return Job_queue, Waiting_queue, Running_queue, log, idle_pro
 
 """
-從(Waiting_queue) -> schedular dispatch 確定是否可以Running，可以的話進入Running_queue，不行則是繼續放置在Waiting_queue等待下個時間點
+從Waiting_queue(Ready state) 經過scheduler確定是否可以Running_queue(Run state)，可以的話進入Running_queue，不行則是繼續放置在Waiting_queue等待下個時間點
 """
 def FCFS_scheduling(Waiting_queue, Running_queue, log, current_time, idle_pro):
     
-    # 開始檢查Waiting_queue的job，資源夠跑且時間符合的的job放進Running_queue
+    # 開始檢查Waiting_queue的Job，將資源夠跑的Job放進Running_queue(Run state)
     tmp = list.copy(Waiting_queue)
     Waiting_queue_length = len(Waiting_queue)
 
@@ -95,19 +95,21 @@ def FCFS_scheduling(Waiting_queue, Running_queue, log, current_time, idle_pro):
 
     return Waiting_queue, Running_queue, log, idle_pro
 
+"""
+EASY Backfilling Algorithm
+"""
 def EASY_Backfilling(Waiting_queue, Running_queue, log, current_time, idle_pro):
 
     tmp = list.copy(Waiting_queue)
-    Waiting_queue_length = len(Waiting_queue)
-    Running_queue_length = len(Running_queue)
-    tmp1 = idle_pro
+    Waiting_queue_length,  Running_queue_length = len(Waiting_queue), len(Running_queue)
+    currently_free_nodes = idle_pro
     Running_queue = Sort(Running_queue, 'Pred_T')
-    global back_job_count
+    global backfilling_job_count
 
     for sort_order in range(Running_queue_length):
-        tmp1 += Running_queue[sort_order]['Req_p']
-        if tmp1 >= Waiting_queue[0]['Req_p']:
-            extra_nodes = tmp1 - Waiting_queue[0]['Req_p']
+        currently_free_nodes += Running_queue[sort_order]['Req_p']
+        if currently_free_nodes >= Waiting_queue[0]['Req_p']:
+            extra_nodes = currently_free_nodes - Waiting_queue[0]['Req_p']
             Waiting_queue[0]['shadow_time'] = Running_queue[sort_order]['Pred_T']
             break
 
@@ -131,25 +133,28 @@ def EASY_Backfilling(Waiting_queue, Running_queue, log, current_time, idle_pro):
             Waiting_queue.remove(job)
             Running_queue.append(job)
             log.append(job)
-            back_job_count += 1
+            backfilling_job_count += 1
         else:
-            continue    
+            continue
 
     return Waiting_queue, Running_queue, log, idle_pro
 
+"""
+找到目前在Running_queue(Run state)中最早完成的Job並回去檢查是不是有應該在這個時間點內進入的Job，最後將最早結束的Job移除歸還process
+"""
 def running_status(Job_queue, Waiting_queue, Running_queue, log, idle_pro):
     
-    # 找到開始run job中最早跑完的，現在時間就是這個時間點
+    # 找到目前最早跑完的Job，將時間戳設成該Job Finish time
     min_Job = min(Running_queue, key=lambda x:x['Finish_t'])
     current_time = min_Job['Finish_t']
     
-    # 知道目前第一個跑完的job finish時間點回去檢查在他running過程中是否有job應該到Waiting_queue接著排程看會不會job可以進running
+    # 利用前述的時間戳檢查在running過程中是否有Job應該到Waiting_queue(Ready state)
     Job_queue, Waiting_queue, Running_queue, log, idle_pro = ready_status(Job_queue, Waiting_queue, Running_queue, log, current_time, idle_pro)
     min_Job = min(Running_queue, key=lambda x:x['Finish_t'])
     current_time = min_Job['Finish_t']
     Earliest_Finish_job_list = [data for data in Running_queue if data.get('Finish_t') == current_time]
     
-    # 將最早跑完的job從Running_queue移除，最後歸還用完的CPU
+    # 將最早跑完的Job從Running_queue(Run state)移除，最後歸還用完的CPU
     for job in Earliest_Finish_job_list:
         Job_num, Req_p = job['Job_num'], job['Req_p']
         tmp1 = f'Job number: {Job_num} terminated, return {Req_p} process\n'
@@ -166,13 +171,11 @@ def running_status(Job_queue, Waiting_queue, Running_queue, log, idle_pro):
 if __name__ == "__main__":
 
     try:
-        Job_queue = []
-        Running_queue = []
-        Waiting_queue = []
-        log = []
+        # initalize，log list是用來紀錄執行過程
+        Job_queue, Running_queue, Waiting_queue, log = [], [], [], []        
+        current_time, count, Total_wait_t, Total_wait_rate, backfilling_job_count = 0, 0, 0, 0, 0
 
         idle_pro = int(input("resource process:"))
-        current_time, count, Total_wait_t, Total_wait_rate, back_job_count = 0, 0, 0, 0, 0
         # 讀檔
         file_path = _getcwd() + '\SDSC-SP2-1998-4.2-cln.swf.gz'
         with _gzopen(file_path, 'r') as fp:
@@ -180,14 +183,14 @@ if __name__ == "__main__":
                 i = line.split()
                 if(bytes.decode(i[0]) != ';' and (bytes.decode(i[10]) == '1' or bytes.decode(i[10]) == '0')):
                     count += 1
-                    # Job Number, Submit Time, Run Time, Requested Number of Processors, Queue Number先不加
+                    # Job Number, Submit Time, Run Time, Requested Number of Processors, Requested Time
                     Job_queue.append({'Job_num': int(bytes.decode(i[0])),
                                       'Sub_t': int(bytes.decode(i[1])),
                                       'Run_t': int(bytes.decode(i[3])),
                                       'Req_p': int(bytes.decode(i[7])),
-                                      'Req_T': int(bytes.decode(i[8])),
-                                      'shadow_time': 0})
-            print("total Job: %d" %count)
+                                      'Req_T': int(bytes.decode(i[8]))})
+
+        print(f'Total Job: {count}')
         
         start = _process_time()
 
@@ -197,8 +200,9 @@ if __name__ == "__main__":
             if len(Job_queue) == 0 and len(Waiting_queue) == 0 and len(Running_queue) == 0:
                 break
         
+        # thread 1 for I/O, thread for Performance Evaluation
         thread1 = _Thread(target = _IOwirte, args = (log,))
-        thread2 = _Thread(target = Print_Screen, args = (log, Total_wait_t, Total_wait_rate, start, back_job_count))
+        thread2 = _Thread(target = Print_Screen, args = (log, Total_wait_t, Total_wait_rate, start, backfilling_job_count))
 
         thread1.start()
         thread2.start()
