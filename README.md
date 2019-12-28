@@ -11,6 +11,7 @@
 
 ###### 作業要求
 * FCFS使用欄位Job Number, Submit Time, Run Time, Requested Number of Processors
+* EASY Backfilling使用欄位Job Number, Submit Time, Run Time, Requested Number of Processors, Requested Time
 
 
 目前進度已完成FCFS以及EASY Backfilling
