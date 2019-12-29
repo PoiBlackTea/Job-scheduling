@@ -3,10 +3,10 @@
 ## 研究所課程-平行程式作業
 ```
 作業內容從Paralled Workloads Archive中利用SDSC SP2 Workload log實作出
-1. First Come, First Served (FCFS)
-2. EASY Backfilling
-3. Conservative Backfilling
-4. Moldable Job Scheduling
+1. First Come, First Served (FCFS)(已完成)
+2. EASY Backfilling(已完成)
+3. Conservative Backfilling(未完成)
+4. Moldable Job Scheduling(未完成)
 ```
 
 ###### 作業要求
