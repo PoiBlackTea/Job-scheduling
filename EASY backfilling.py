@@ -4,6 +4,7 @@ from traceback import print_exc as _print_exc
 from time import process_time as _process_time
 from os import getcwd as _getcwd
 from threading import Thread as _Thread
+
 """
 輸出log list
 """
@@ -19,22 +20,25 @@ def _IOwirte(li):
                         "Requested Time: %d Predict Time: %d Requested Number of Processors: %d\n"\
                         "Idle Process: %d\n"\
                         "-----------------------------------------------------------------------------------------------------\n"\
-                        %(job['Job_num'], job['Sub_t'], job['Wait_t'], job['start_t'], job['Run_t'], job['Finish_t'], job['Req_T'], job['Pred_T'], job['Req_p'], job['idle_pro']))
+                        %(job.get('Job_num'), job.get('Sub_t'), job.get('Wait_t'), job.get('start_t'), job.get('Run_t'), job.get('Finish_t'), job.get('Req_T'), job.get('Pred_T'), job.get('Req_p'), job.get('idle_pro')))
 
 """
 Print Performance Evaluation
 """
-def Print_Screen(li, Total_wait_t, Total_wait_rate, start, back_job_count):
+def Print_Screen(li, start, back_job_count):
 
+    Total_wait_t, Total_wait_rate, Total_turnaround_t = 0, 0, 0
     for job in li:
         if isinstance(job, str):
             continue
         else:
-            Total_wait_t += job['Wait_t']
-            Total_wait_rate += job['Waiting_rate']
+            Total_wait_t += job.get('Wait_t')
+            Total_wait_rate += job.get('Waiting_rate')
+            Total_turnaround_t = Total_turnaround_t + job.get('Wait_t') + job.get('Run_t')
             
     print(f'spend {_process_time() - start} seconds\nTotal waiting time: {Total_wait_t}\nTotal waiting rate: {Total_wait_rate}\n'\
-            f'Average waiting time: {Total_wait_t/count}\nAverage waiting rate: {Total_wait_rate/count}\nBackfilling Job number: {back_job_count}\n')
+            f'Average waiting time: {Total_wait_t/count}\nAverage waiting rate: {Total_wait_rate/count}\nBackfilling Job number: {back_job_count}\n'\
+            f'Average turnaround time: {Total_turnaround_t/count}')
 
 def Sort(sub_li, key):
     return(sorted(sub_li, key = lambda x: x[key]))
@@ -45,18 +49,18 @@ def Sort(sub_li, key):
 def ready_status(Job_queue, Waiting_queue, Running_queue, log, current_time, idle_pro):
 
     # 發生在沒有Job會submit了，但Waiting_queue和Running_queue可能還有Job處理中
-    if len(Job_queue) == 0:
+    if not Job_queue:
         Waiting_queue, Running_queue, log, idle_pro = FCFS_scheduling(Waiting_queue, Running_queue, log, current_time, idle_pro)
     # Waiting_queue和Running_queue是0，i.e., 一開始還沒有Job submit或者運行過程中剛好Job完成但還沒new Job submit的時間點，模擬直接抓Job_queue第一個job丟進Waiting_queue並將時間設定成該Job的Submit Time
-    elif len(Waiting_queue) == 0 and len(Running_queue) == 0: 
-        current_time = Job_queue[0]['Sub_t']
+    elif not Waiting_queue and not Running_queue: 
+        current_time = Job_queue[0].get('Sub_t')
     # 檢查是否有這個時間點內的Job應該進Waiting_queue且已經沒有Job從Running_queue(Run state) -> Terminated state
     tmp = list.copy(Job_queue)
     c_t = current_time
     for job in tmp:
-        if job['Sub_t'] <= c_t:
-            current_time = job['Sub_t']
-            if len(Running_queue) != 0 and min(Running_queue, key=lambda x:x['Finish_t'])['Finish_t'] > current_time or len(Running_queue) == 0:
+        if job.get('Sub_t') <= c_t:
+            current_time = job.get('Sub_t')
+            if Running_queue and min(Running_queue, key=lambda x:x.get('Finish_t')).get('Finish_t') > current_time or not Running_queue:
                 Waiting_queue.append(job)
                 Job_queue.remove(job)
                 Waiting_queue, Running_queue, log, idle_pro = FCFS_scheduling(Waiting_queue, Running_queue, log, current_time, idle_pro)
@@ -80,9 +84,9 @@ def FCFS_scheduling(Waiting_queue, Running_queue, log, current_time, idle_pro):
     for i in range(Waiting_queue_length):
         job = tmp[i]
         if job['Req_p'] <= idle_pro:
-            job['start_t'], job['Pred_T'], job['Wait_t'], job['Finish_t'] = current_time, current_time + job['Req_T'], current_time - job['Sub_t'], current_time + job['Run_t']
-            job['Waiting_rate'] = job['Wait_t']/job['Run_t']
-            idle_pro -= job['Req_p']
+            job['start_t'], job['Pred_T'], job['Wait_t'], job['Finish_t'] = current_time, current_time + job.get('Req_T'), current_time - job.get('Sub_t'), current_time + job.get('Run_t')
+            job['Waiting_rate'] = job.get('Wait_t')/job.get('Run_t')
+            idle_pro -= job.get('Req_p')
             job['idle_pro'] = idle_pro
             Waiting_queue.remove(job)
             Running_queue.append(job)
@@ -107,28 +111,28 @@ def EASY_Backfilling(Waiting_queue, Running_queue, log, current_time, idle_pro):
     global backfilling_job_count
 
     for sort_order in range(Running_queue_length):
-        currently_free_nodes += Running_queue[sort_order]['Req_p']
-        if currently_free_nodes >= Waiting_queue[0]['Req_p']:
-            extra_nodes = currently_free_nodes - Waiting_queue[0]['Req_p']
-            Waiting_queue[0]['shadow_time'] = Running_queue[sort_order]['Pred_T']
+        currently_free_nodes += Running_queue[sort_order].get('Req_p')
+        if currently_free_nodes >= Waiting_queue[0].get('Req_p') :
+            extra_nodes = currently_free_nodes - Waiting_queue[0].get('Req_p')
+            Waiting_queue[0]['shadow_time'] = Running_queue[sort_order].get('Pred_T')
             break
 
     for i in range(1, Waiting_queue_length):
         job = tmp[i]
-        if min(Running_queue, key=lambda x:x['Finish_t'])['Finish_t'] <= current_time:
+        if min(Running_queue, key=lambda x:x.get('Finish_t')).get('Finish_t') <= current_time:
             break
         elif job['Req_p'] <= idle_pro:
-            job['Pred_T'] = current_time + job['Req_T']
-            if job['Pred_T'] <= Waiting_queue[0]['shadow_time']:
+            job['Pred_T'] = current_time + job.get('Req_T')
+            if job.get('Pred_T') <= Waiting_queue[0].get('shadow_time'):
                 pass
-            elif job['Req_p'] <= extra_nodes:
-                extra_nodes -= job['Req_p']
+            elif job.get('Req_p') <= extra_nodes:
+                extra_nodes -= job.get('Req_p')
             else:
                 continue
 
-            job['start_t'], job['Wait_t'], job['Finish_t'] = current_time, current_time - job['Sub_t'], current_time + job['Run_t']
-            job['Waiting_rate'] = job['Wait_t']/job['Run_t']
-            idle_pro -= job['Req_p']
+            job['start_t'], job['Wait_t'], job['Finish_t'] = current_time, current_time - job.get('Sub_t'), current_time + job.get('Run_t')
+            job['Waiting_rate'] = job.get('Wait_t')/job.get('Run_t')
+            idle_pro -= job.get('Req_p')
             job['idle_pro'] = idle_pro
             Waiting_queue.remove(job)
             Running_queue.append(job)
@@ -145,26 +149,24 @@ def EASY_Backfilling(Waiting_queue, Running_queue, log, current_time, idle_pro):
 def running_status(Job_queue, Waiting_queue, Running_queue, log, idle_pro):
     
     # 找到目前最早跑完的Job，將時間戳設成該Job Finish time
-    min_Job = min(Running_queue, key=lambda x:x['Finish_t'])
-    current_time = min_Job['Finish_t']
+    current_time =  min(Running_queue, key=lambda x:x.get('Finish_t')).get('Finish_t')
     
     # 利用前述的時間戳檢查在running過程中是否有Job應該到Waiting_queue(Ready state)
     Job_queue, Waiting_queue, Running_queue, log, idle_pro = ready_status(Job_queue, Waiting_queue, Running_queue, log, current_time, idle_pro)
-    min_Job = min(Running_queue, key=lambda x:x['Finish_t'])
-    current_time = min_Job['Finish_t']
-    Earliest_Finish_job_list = [data for data in Running_queue if data.get('Finish_t') == current_time]
+    current_time =  min(Running_queue, key=lambda x:x.get('Finish_t')).get('Finish_t')
+    Earliest_Finish_job_list = (data for data in Running_queue if data.get('Finish_t') == current_time)
     
     # 將最早跑完的Job從Running_queue(Run state)移除，最後歸還用完的CPU
     for job in Earliest_Finish_job_list:
-        Job_num, Req_p = job['Job_num'], job['Req_p']
+        Job_num, Req_p = job.get('Job_num'), job.get('Req_p')
         tmp1 = f'Job number: {Job_num} terminated, return {Req_p} process\n'
-        tmp2 = " ".join([str(i['Job_num']) for i in Waiting_queue if i['Sub_t'] <= current_time])
+        tmp2 = " ".join([str(i.get('Job_num')) for i in Waiting_queue if i.get('Sub_t') <= current_time])
         if tmp2 != '':
             tmp2 = f'Job number: {tmp2} in the Waiting queue\n'
         s = f'{tmp1}{tmp2}-----------------------------------------------------------------------------------------------------\n'
         log.append(s)
         Running_queue.remove(job)
-        idle_pro += job['Req_p']
+        idle_pro += job.get('Req_p')
 
     return Job_queue, Waiting_queue, Running_queue, log, current_time, idle_pro   
 
@@ -173,7 +175,7 @@ if __name__ == "__main__":
     try:
         # initalize，log list是用來紀錄執行過程
         Job_queue, Running_queue, Waiting_queue, log = [], [], [], []        
-        current_time, count, Total_wait_t, Total_wait_rate, backfilling_job_count = 0, 0, 0, 0, 0
+        current_time, count, backfilling_job_count = 0, 0, 0
 
         idle_pro = int(input("resource process:"))
         # 讀檔
@@ -197,12 +199,12 @@ if __name__ == "__main__":
         while True:
             Job_queue, Waiting_queue, Running_queue, log, idle_pro = ready_status(Job_queue, Waiting_queue, Running_queue, log, current_time, idle_pro)            
             Job_queue, Waiting_queue, Running_queue, log, current_time, idle_pro = running_status(Job_queue, Waiting_queue, Running_queue, log, idle_pro)
-            if len(Job_queue) == 0 and len(Waiting_queue) == 0 and len(Running_queue) == 0:
+            if not Job_queue and not Waiting_queue and not Running_queue:
                 break
         
         # thread 1 for I/O, thread for Performance Evaluation
         thread1 = _Thread(target = _IOwirte, args = (log,))
-        thread2 = _Thread(target = Print_Screen, args = (log, Total_wait_t, Total_wait_rate, start, backfilling_job_count))
+        thread2 = _Thread(target = Print_Screen, args = (log, start, backfilling_job_count))
 
         thread1.start()
         thread2.start()
