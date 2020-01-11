@@ -85,7 +85,7 @@ def running_status(Job_queue, Waiting_queue, Running_queue, log, idle_pro):
         tmp2 = " ".join([str(i.get('Job_num')) for i in Waiting_queue if i.get('Sub_t') <= current_time])
         if tmp2 != '':
             tmp2 = f'Job number: {tmp2} in the Waiting queue\n'
-        s = f"{tmp1}{tmp2}{'-'*101}"
+        s = f"{tmp1}{tmp2}{'-'*101}\n"
         log.append(s)
         Running_queue.remove(job)
         idle_pro += job.get('Req_p')
@@ -139,10 +139,10 @@ if __name__ == "__main__":
                     Total_wait_rate += job.get('Waiting_rate')
                     Total_turnaround_t = Total_turnaround_t + job.get('Wait_t') + job.get('Run_t')
                     wp.write(
-                        f"Job number: {job.get('Job_num')}\nSubmit Time: {job.get('Sub_t')}"\
-                        f"Wait Time: {job.get('Wait_t')} Start Time: {job.get('start_t')}"\
-                        f"Run Time: {job.get('Run_t')}Finish Time: {job.get('Finish_t')}\n"\
-                        f"Requested Number of Processors: {job.get('Req_p')} Idle Process: {job.get('idle_pro')}"\
+                        f"Job number: {job.get('Job_num')}\nSubmit Time: {job.get('Sub_t')} "\
+                        f"Wait Time: {job.get('Wait_t')} Start Time: {job.get('start_t')} "\
+                        f"Run Time: {job.get('Run_t')} Finish Time: {job.get('Finish_t')}\n"\
+                        f"Requested Number of Processors: {job.get('Req_p')} Idle Process: {job.get('idle_pro')}\n"\
                         f"{'-'*101}\n"
                     )
 
