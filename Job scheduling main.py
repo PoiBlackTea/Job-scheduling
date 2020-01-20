@@ -23,7 +23,7 @@ def ready_status(Job_queue, Waiting_queue, Running_queue, log, current_time, idl
     for job in tmp:
         if job.get('Sub_t') <= c_t:
             current_time = job.get('Sub_t')
-            if Running_queue and min(Running_queue, key=lambda x:x.get('Finish_t')).get('Finish_t') > current_time or not         Running_queue:
+            if Running_queue and min(Running_queue, key=lambda x:x.get('Finish_t')).get('Finish_t') > current_time or not Running_queue:
                 Waiting_queue.append(job)
                 Job_queue.remove(job)
                 Waiting_queue, Running_queue, log, idle_pro = FCFS_scheduling(
@@ -46,10 +46,8 @@ def FCFS_scheduling(Waiting_queue, Running_queue, log, current_time, idle_pro):
     
     # 開始檢查Waiting_queue的Job，將資源夠跑的Job放進Running_queue(Run state)
     tmp = list.copy(Waiting_queue)
-    Waiting_queue_length = len(Waiting_queue)
 
-    for i in range(Waiting_queue_length):
-        job = tmp[i]
+    for job in tmp:
         if job['Req_p'] <= idle_pro:
             job['start_t'], job['Wait_t'], job['Finish_t'] = (
                 current_time, current_time - job.get('Sub_t'), current_time + job.get('Run_t'))
